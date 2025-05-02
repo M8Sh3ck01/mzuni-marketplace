@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  /* Base Colors */
+  --background: #ffffff; /* White background */
+  --foreground: #171717; /* Dark text */
+
+  /* Primary Theme Colors - Green Palette */
+  --primary: #2e7d32; /* Mzuni Green (similar to Mzuzu University colors) */
+  --primary-hover: #1b5e20; /* Darker green */
+  --primary-light: #81c784; /* Light green accent */
+  --accent: #e8f5e9; /* Very light green */
+  --error: #c62828; /* Deep red */
+  --border: #a5d6a7; /* Leaf-like border */
+
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+}
