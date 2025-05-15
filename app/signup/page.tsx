@@ -6,6 +6,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import PageLoader from "@/components/ui/PageLoader";
 
 export default function SignUp() {
   const [isClient, setIsClient] = useState(false);
@@ -27,14 +28,12 @@ export default function SignUp() {
     const newErrors: Record<string, string> = {};
     if (!formData.email) newErrors.email = "Email required";
     else if (!/^\S+@\S+\.\S+$/.test(formData.email)) newErrors.email = "Invalid email";
-    
+
     if (!formData.password) newErrors.password = "Password required";
-    else if (formData.password.length < 8) newErrors.password = "Minimum 8 characters";
-    else if (!/[A-Z]/.test(formData.password)) newErrors.password = "Include uppercase letter";
-    else if (!/[0-9]/.test(formData.password)) newErrors.password = "Include number";
-    
+    else if (formData.password.length < 6) newErrors.password = "Minimum 6 characters";
+
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Passwords don't match";
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -52,7 +51,7 @@ export default function SignUp() {
       );
       await sendEmailVerification(userCredential.user);
       setSuccess(true);
-      setTimeout(() => router.push("/login"), 3000);
+      setTimeout(() => router.push("/profile/setup"), 3000);
     } catch (error: any) {
       let errorMessage = "Sign up failed. Please try again.";
       switch (error.code) {
@@ -67,19 +66,9 @@ export default function SignUp() {
     }
   };
 
-  if (!isClient) return (
-    <div className="flex h-screen justify-center items-center bg-[var(--background)]">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full sm:w-[400px]">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-3/4 mx-auto"></div>
-          <div className="h-12 bg-gray-200 rounded"></div>
-          <div className="h-12 bg-gray-200 rounded"></div>
-          <div className="h-12 bg-gray-200 rounded"></div>
-          <div className="h-10 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    </div>
-  );
+  if (!isClient) {
+    return <PageLoader text="Preparing signup form..." />;
+  }
 
   if (success) return (
     <div className="flex h-screen justify-center items-center bg-[var(--background)]">

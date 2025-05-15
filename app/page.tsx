@@ -1,244 +1,382 @@
-"use client";
+'use client'
 
+import { useAuthContext } from "@/components/layout/AuthLayout";
+import { Search as SearchIcon, Plus as PlusIcon, Menu, LogOut, Filter, X, User, Settings, HelpCircle, Bell, Sun, Moon, Store } from "lucide-react";
+import ListingsPage from "@/components/listing/listings";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { auth } from "../lib/firebase";
-import { User } from "firebase/auth";
 import Link from "next/link";
-import { Search, Store, GraduationCap, TrendingUp } from "lucide-react";
+import { Icon } from '@/components/ui/Icon';
+import PageLoader from "@/components/ui/PageLoader";
+import { motion, AnimatePresence } from "framer-motion";
 
-export default function MarketplaceHome() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function Home() {
+  const { user, loading, logout } = useAuthContext();
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [showMenu, setShowMenu] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState(0);
+
+  const subtitles = [
+    "Buy and sell within the Mzuzu University community",
+    "Connect with fellow students and staff",
+    "Find great deals on campus",
+    "Sell your items safely and easily",
+    "Join our trusted marketplace network"
+  ];
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((authUser) => {
-      setUser(authUser);
-      setLoading(false);
-    });
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
 
-    return () => unsubscribe();
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSubtitleIndex((prev) => (prev + 1) % subtitles.length);
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setIsSearching(true);
+      // The search will be handled by the ListingsPage component
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setIsSearching(false);
+  };
+
+  const menuItems = [
+    {
+      label: 'Profile',
+      icon: User,
+      href: '/profile',
+    },
+    {
+      label: 'Notifications',
+      icon: Bell,
+      href: '/notifications',
+    },
+    {
+      label: 'Settings',
+      icon: Settings,
+      href: '/settings',
+    },
+    {
+      label: 'Help & Support',
+      icon: HelpCircle,
+      href: '/help',
+    },
+    {
+      label: 'Logout',
+      icon: LogOut,
+      onClick: handleLogout,
+      className: 'text-red-500 hover:text-red-600',
+    },
+  ];
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[var(--background)]">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--primary)] border-t-transparent"></div>
-      </div>
-    );
+    return <PageLoader text="Loading your marketplace..." />;
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      {/* Navigation */}
-      <nav className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Store className="h-6 w-6 text-[var(--primary)]" />
-              <Link href="/" className="text-xl font-bold text-[var(--primary)]">
+      {/* Hero Section with Gradient */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="pt-6 pb-4 px-4"
+      >
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
+            <motion.div 
+              className="w-12 h-12 rounded-xl bg-[var(--primary-light)] flex items-center justify-center"
+              animate={{
+                y: [0, -5, 0],
+                scale: [1, 1.05, 1],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              <motion.div
+                animate={{
+                  scale: [1, 1.1, 1],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                <Store className="w-6 h-6 text-[var(--primary)]" />
+              </motion.div>
+            </motion.div>
+            <div>
+              <h1 className="text-2xl md:text-4xl font-extrabold leading-tight tracking-tight text-[var(--foreground)]">
                 Mzuni Marketplace
-              </Link>
-            </div>
-            <div className="flex items-center gap-4">
-              {user ? (
-                <>
-                  <Link
-                    href="/dashboard"
-                    className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
-                  >
-                    My Listings
-                  </Link>
-                  <button
-                    onClick={() => auth.signOut()}
-                    className="rounded-md px-4 py-2 text-sm font-medium text-[var(--primary)] ring-1 ring-[var(--primary)] hover:bg-gray-50"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="rounded-md px-4 py-2 text-sm font-medium text-[var(--primary)] ring-1 ring-[var(--primary)] hover:bg-gray-50"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
+              </h1>
+              <motion.p 
+                key={currentSubtitleIndex}
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ 
+                  x: [100, 0, 0, 100],
+                  opacity: [0, 1, 1, 0]
+                }}
+                transition={{
+                  duration: 8,
+                  repeat: 0,
+                  ease: [0.16, 1, 0.3, 1],
+                  times: [0, 0.1, 0.9, 1]
+                }}
+                className="text-base md:text-lg text-[var(--foreground-muted)] mt-2 font-medium"
+              >
+                {subtitles[currentSubtitleIndex]}
+              </motion.p>
             </div>
           </div>
         </div>
-      </nav>
+      </motion.div>
 
-      {/* Hero Section */}
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="py-16 text-center">
-          <div className="mx-auto max-w-2xl">
-            <h1 className="text-4xl font-bold tracking-tight text-[var(--foreground)] sm:text-5xl">
-              Buy & Sell Student Businesses
-            </h1>
-            <p className="mt-6 text-lg leading-8 text-gray-600">
-              Mzuzu University's official marketplace for student entrepreneurs to trade their ventures
-            </p>
+      {/* Sticky Navigation Bar */}
+      <motion.header 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`sticky top-0 z-50 bg-[var(--background)]/80 backdrop-blur-lg border-b border-[var(--border)]/20 transition-all duration-300 ${
+          isScrolled ? 'shadow-sm' : ''
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="h-14 flex items-center justify-between gap-4">
+            <div className="relative">
+              <button 
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-2 hover:bg-[var(--accent)] rounded-lg transition-colors"
+              >
+                <Icon icon={Menu} size={20} />
+              </button>
+
+              {/* Dropdown Menu */}
+              <AnimatePresence>
+                {showMenu && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowMenu(false)}
+                    />
+                    
+                    {/* Menu Items */}
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute left-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg z-50 overflow-hidden"
+                    >
+                      <div className="py-1">
+                        {menuItems.map((item, index) => (
+                          item.href ? (
+                            <Link
+                              key={index}
+                              href={item.href}
+                              className={`flex items-center px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors ${item.className || ''}`}
+                              onClick={() => setShowMenu(false)}
+                            >
+                              <Icon icon={item.icon} size={18} className="mr-3" />
+                              {item.label}
+                            </Link>
+                          ) : (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                item.onClick?.();
+                                setShowMenu(false);
+                              }}
+                              className={`w-full flex items-center px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors ${item.className || ''}`}
+                            >
+                              <Icon icon={item.icon} size={18} className="mr-3" />
+                              {item.label}
+                            </button>
+                          )
+                        ))}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
             
-            {/* Search Bar */}
-            <div className="mt-10 flex rounded-md shadow-sm">
-              <div className="relative flex flex-grow items-stretch focus-within:z-10">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Search className="h-5 w-5 text-gray-400" />
+            <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-auto">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
+                  <Icon icon={SearchIcon} size={18} className="text-[var(--foreground)]/40" />
                 </div>
                 <input
                   type="text"
-                  className="block w-full rounded-md border-0 py-3 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[var(--primary)] sm:text-sm sm:leading-6"
-                  placeholder="Search for businesses..."
+                  placeholder="Search items..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[var(--accent)]/50 pl-10 pr-10 py-3 rounded-xl text-base border-none focus:ring-2 focus:ring-[var(--primary)]/30 transition-all"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <Icon icon={X} size={18} className="text-[var(--foreground)]/40 hover:text-[var(--foreground)]/60" />
+                  </button>
+                )}
               </div>
-              <button
-                type="button"
-                className="relative -ml-px inline-flex items-center gap-x-1.5 rounded-r-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-[var(--primary)] hover:bg-[var(--primary-hover)]"
+            </form>
+
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className="p-2 hover:bg-[var(--accent)] rounded-lg transition-colors"
               >
-                Search
+                <Icon icon={Filter} size={20} />
+              </button>
+              <Link 
+                href="/post" 
+                className="bg-[var(--primary)] text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-[var(--primary-hover)] transition-colors"
+              >
+                <Icon icon={PlusIcon} size={16} />
+                <span>Sell</span>
+              </Link>
+              <button 
+                onClick={toggleTheme}
+                className="p-2 hover:bg-[var(--accent)] rounded-lg transition-colors"
+                aria-label="Toggle theme"
+              >
+                <AnimatePresence mode="wait">
+                  {theme === 'light' ? (
+                    <motion.div
+                      key="moon"
+                      initial={{ opacity: 0, rotate: -90 }}
+                      animate={{ opacity: 1, rotate: 0 }}
+                      exit={{ opacity: 0, rotate: 90 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Icon icon={Moon} size={20} />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="sun"
+                      initial={{ opacity: 0, rotate: 90 }}
+                      animate={{ opacity: 1, rotate: 0 }}
+                      exit={{ opacity: 0, rotate: -90 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Icon icon={Sun} size={20} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </button>
             </div>
-
-            <div className="mt-10 flex justify-center gap-x-6">
-              {user ? (
-                <Link
-                  href="/dashboard/create"
-                  className="rounded-md bg-[var(--primary)] px-6 py-3 text-lg font-medium text-white hover:bg-[var(--primary-hover)]"
-                >
-                  Sell Your Business
-                </Link>
-              ) : (
-                <Link
-                  href="/signup"
-                  className="rounded-md bg-[var(--primary)] px-6 py-3 text-lg font-medium text-white hover:bg-[var(--primary-hover)]"
-                >
-                  Join Marketplace
-                </Link>
-              )}
-            </div>
           </div>
         </div>
+      </motion.header>
 
-        {/* Features Section */}
-        <div className="py-16">
-          <h2 className="text-center text-3xl font-bold text-[var(--foreground)]">
-            Why Use Mzuni Marketplace?
-          </h2>
-          <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-3">
-            {[
-              {
-                name: "Student Verified",
-                description: "All businesses are verified Mzuzu University student ventures",
-                icon: <GraduationCap className="h-8 w-8 text-[var(--primary)]" />,
-              },
-              {
-                name: "Easy Transactions",
-                description: "Secure platform for smooth business transfers",
-                icon: <TrendingUp className="h-8 w-8 text-[var(--primary)]" />,
-              },
-              {
-                name: "Campus Focused",
-                description: "Designed specifically for Mzuzu University community",
-                icon: <Store className="h-8 w-8 text-[var(--primary)]" />,
-              },
-            ].map((feature) => (
-              <div
-                key={feature.name}
-                className="rounded-lg bg-white p-6 shadow-md text-center"
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* Filters Section */}
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ 
+            height: showFilters ? 'auto' : 0,
+            opacity: showFilters ? 1 : 0
+          }}
+          className="overflow-hidden"
+        >
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-[var(--accent)]/30 rounded-xl mb-6">
+            <div>
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                Category
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--background)] text-[var(--foreground)]"
               >
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary-light)]">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-semibold text-[var(--foreground)]">
-                  {feature.name}
-                </h3>
-                <p className="mt-2 text-gray-600">{feature.description}</p>
-              </div>
-            ))}
+                <option value="">All Categories</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Books">Books</option>
+                <option value="Clothing & Fashion">Clothing & Fashion</option>
+                <option value="Food">Food</option>
+                <option value="Furniture">Furniture</option>
+                <option value="Stationery">Stationery</option>
+                <option value="Sports & Fitness">Sports & Fitness</option>
+                <option value="Beauty & Personal Care">Beauty & Personal Care</option>
+                <option value="Tutoring">Tutoring</option>
+                <option value="Repairs & Maintenance">Repairs & Maintenance</option>
+                <option value="Event Planning">Event Planning</option>
+                <option value="Transportation">Transportation</option>
+                <option value="Cleaning">Cleaning</option>
+                <option value="Beauty & Wellness">Beauty & Wellness</option>
+                <option value="Tech Support">Tech Support</option>
+                <option value="Others">Others</option>
+              </select>
+            </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Recent Listings Section */}
-        <div className="py-16">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-[var(--foreground)]">
-              Recent Listings
-            </h2>
-            <Link
-              href="/listings"
-              className="text-sm font-medium text-[var(--primary)] hover:text-[var(--primary-hover)]"
-            >
-              View all →
-            </Link>
-          </div>
-          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Sample listing cards - replace with real data */}
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="overflow-hidden rounded-lg bg-white shadow-md">
-                <div className="h-48 bg-gray-200"></div>
-                <div className="p-4">
-                  <h3 className="text-lg font-medium text-[var(--foreground)]">
-                    Student Business {item}
-                  </h3>
-                  <p className="mt-2 text-gray-600">
-                    Brief description of the business...
-                  </p>
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="font-bold text-[var(--primary)]">MK{item * 50000}</span>
-                    <Link
-                      href={`/listings/${item}`}
-                      className="text-sm text-[var(--primary)] hover:text-[var(--primary-hover)]"
-                    >
-                      View Details
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Listings Grid */}
+        <ListingsPage 
+          searchQuery={searchQuery} 
+          category={selectedCategory}
+          key={`${searchQuery}-${selectedCategory}`} // Force re-render when either filter changes
+        />
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-white py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between md:flex-row">
-            <div className="mb-6 md:mb-0">
-              <div className="flex items-center gap-2">
-                <Store className="h-6 w-6 text-[var(--primary)]" />
-                <span className="text-xl font-bold text-[var(--primary)]">
-                  Mzuni Marketplace
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-gray-600">
-                Connecting Mzuzu University entrepreneurs
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-6 md:gap-8">
-              <Link href="/about" className="text-sm text-gray-600 hover:text-[var(--primary)]">
-                About
-              </Link>
-              <Link href="/contact" className="text-sm text-gray-600 hover:text-[var(--primary)]">
-                Contact
-              </Link>
-              <Link href="/faq" className="text-sm text-gray-600 hover:text-[var(--primary)]">
-                FAQ
-              </Link>
-            </div>
-          </div>
-          <div className="mt-8 text-center text-sm text-gray-500">
-            &copy; {new Date().getFullYear()} Mzuzu University Marketplace. All rights reserved.
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

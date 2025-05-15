@@ -1,42 +1,56 @@
-import React from 'react';
-import clsx from 'clsx';
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
 
-type ButtonProps = {
-  children: React.ReactNode;
-  variant?: 'primary' | 'outline';
-  asChild?: boolean;
-  // Add the standard button props to handle attributes like type, disabled, etc.
-  type?: 'button' | 'submit' | 'reset';
-  disabled?: boolean;
-  className?: string;
-};
+import { cn } from "@/lib/utils";
 
-const Button = ({
-  children,
-  variant = 'primary',
-  asChild = false,
-  type = 'button',
-  disabled = false,
-  className = '',
-}: ButtonProps) => {
-  if (asChild) {
-    return <>{children}</>;  // Just render the children directly if asChild is true
+const buttonVariants = cva(
+  "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/30 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]",
+        destructive:
+          "bg-[var(--error)] text-white hover:bg-[var(--error)]/90",
+        outline:
+          "border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+        secondary:
+          "bg-[var(--accent)] text-[var(--foreground)] hover:bg-[var(--accent)]/80",
+        ghost: "hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+        link: "text-[var(--primary)] underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
   }
+);
 
-  return (
-    <button
-      type={type}  // Use the type prop here
-      disabled={disabled}  // Handle disabled state
-      className={clsx(
-        'px-4 py-2 rounded',
-        variant === 'primary' && 'bg-blue-600 text-white',
-        variant === 'outline' && 'border border-blue-600 text-blue-600',
-        className  // Allow for additional custom className if provided
-      )}
-    >
-      {children}
-    </button>
-  );
-};
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
+}
 
-export default Button;
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Button.displayName = "Button";
+
+export { Button, buttonVariants };
