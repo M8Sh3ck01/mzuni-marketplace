@@ -175,7 +175,7 @@ export default function ListingsPage({ searchQuery, category }: ListingsPageProp
                   MWK {listing.price.toLocaleString()}
                 </p>
                 <div className="flex items-center justify-between text-sm text-[var(--foreground)]/60">
-                  <span>{listing.sellerName}</span>
+                  <span>{listing.contactName || 'Unknown Seller'}</span>
                   <span>{formatDistanceToNow(listing.createdAt, { addSuffix: true })}</span>
                 </div>
               </div>

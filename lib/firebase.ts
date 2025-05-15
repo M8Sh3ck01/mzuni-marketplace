@@ -5,6 +5,10 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, setDoc } from "firebase/firestore";
+
+// Cloudinary
+import { uploadImage as uploadToCloudinary } from "@/lib/cloudinary"; // or correct path
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -51,16 +55,18 @@ export const uploadImage = async (file: File, path: string): Promise<string> => 
       throw new Error('File must be an image');
     }
 
-    // Validate file size (max 5MB)
+    let fileToUpload = file;
+    
+    // If file is larger than 5MB, compress it
     if (file.size > 5 * 1024 * 1024) {
-      throw new Error('File size must be less than 5MB');
+      fileToUpload = await compressImage(file);
     }
 
     // Create a storage reference
     const storageRef = ref(storage, path);
     
     // Upload the file
-    const snapshot = await uploadBytes(storageRef, file);
+    const snapshot = await uploadBytes(storageRef, fileToUpload);
     
     // Get the download URL
     const downloadURL = await getDownloadURL(snapshot.ref);
@@ -70,6 +76,57 @@ export const uploadImage = async (file: File, path: string): Promise<string> => 
     console.error('Error uploading image:', error);
     throw error;
   }
+};
+
+// Add this helper function for image compression
+const compressImage = async (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Calculate new dimensions while maintaining aspect ratio
+        const maxDimension = 1200; // Max width or height
+        if (width > height && width > maxDimension) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else if (height > maxDimension) {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Convert to blob with reduced quality
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              reject(new Error('Failed to compress image'));
+            }
+          },
+          'image/jpeg',
+          0.7 // Quality: 0.7 = 70%
+        );
+      };
+    };
+    reader.onerror = (error) => reject(error);
+  });
 };
 
 export { auth, db, storage, analytics };

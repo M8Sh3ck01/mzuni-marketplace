@@ -1,19 +1,23 @@
-import React from 'react';
+import { cn } from "@/lib/utils";
 
-type AvatarProps = {
+interface AvatarProps {
   src: string;
-  alt?: string;
-  size?: number;
+  alt: string;
+  size: number;
   className?: string;
-};
+}
 
-const Avatar = ({ src, alt = 'User Avatar', size = 40, className = '' }: AvatarProps) => {
+const Avatar = ({ src, alt, size, className }: AvatarProps) => {
   return (
     <img
       src={src}
       alt={alt}
-      className={`rounded-full object-cover ${className}`}
-      style={{ width: size, height: size }}
+      width={size}
+      height={size}
+      className={cn(
+        "rounded-full object-cover",
+        className
+      )}
     />
   );
 };

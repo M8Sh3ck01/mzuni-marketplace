@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { doc, getDoc, collection, query, where, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
-import { Pencil, Edit, Trash2, Archive, MoreVertical, Eye } from "lucide-react";
+import { Pencil, Edit, Trash2, Archive, MoreVertical, Eye, User } from "lucide-react";
 import Link from "next/link";
 import Avatar from "@/components/ui/Avatar";
 import { useRouter } from "next/navigation";
@@ -33,6 +33,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
+      console.log('Fetching profile for user:', user.uid);
       const publicRef = doc(db, "users_public", user.uid);
       const privateRef = doc(db, "users_private", user.uid);
       const [publicSnap, privateSnap] = await Promise.all([
@@ -40,10 +41,14 @@ export default function ProfilePage() {
         getDoc(privateRef)
       ]);
       if (publicSnap.exists() || privateSnap.exists()) {
-        setProfile({
+        const profileData = {
           ...(privateSnap.exists() ? privateSnap.data() : {}),
           ...(publicSnap.exists() ? publicSnap.data() : {}),
-        });
+        };
+        console.log('Fetched profile data:', profileData);
+        console.log('Photo URL from profile:', profileData.photoURL);
+        console.log('Photo URL from user:', user.photoURL);
+        setProfile(profileData);
       } else {
         router.push('/profile/setup');
       }
@@ -131,12 +136,18 @@ export default function ProfilePage() {
           <div className="bg-[var(--background)] shadow-md rounded-lg p-6 space-y-6 border border-[var(--border)]">
             <div className="flex flex-col items-center space-y-4">
               <div className="relative group">
-                <Avatar
-                  src={profile?.photoURL || user?.photoURL || "/avatar-placeholder.png"}
-                  alt={profile?.firstName || "Profile Picture"}
-                  size={160}
-                  className="border-4 border-[var(--primary)] transition-transform group-hover:scale-105"
-                />
+                {profile?.photoURL || user?.photoURL ? (
+                  <Avatar
+                    src={profile?.photoURL || user?.photoURL}
+                    alt={profile?.firstName || "Profile Picture"}
+                    size={160}
+                    className="border-4 border-[var(--primary)] transition-transform group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-40 h-40 rounded-full bg-[var(--accent)] flex items-center justify-center border-4 border-[var(--primary)]">
+                    <User className="w-20 h-20 text-[var(--foreground-muted)]" />
+                  </div>
+                )}
                 <Link href="/profile/setup" className="absolute bottom-0 right-0 bg-[var(--primary)] text-white p-2 rounded-full hover:bg-[var(--primary-hover)] transition-colors opacity-0 group-hover:opacity-100">
                   <Pencil className="w-4 h-4" />
                 </Link>

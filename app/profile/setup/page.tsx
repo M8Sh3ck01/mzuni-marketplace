@@ -1,574 +1,303 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { auth, db, uploadImage } from "@/lib/firebase";
+import { motion } from "framer-motion";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
-import { updateProfile } from "firebase/auth";
-import { ArrowLeft, User, Mail, Phone, MapPin, GraduationCap, BookOpen, Calendar, MessageCircle, Camera, X } from "lucide-react";
-import Link from "next/link";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/Label";
+import { Textarea } from "@/components/ui/Textarea";
+import { Select } from "@/components/ui/Select";
+import Avatar from "@/components/ui/Avatar";
+import { User } from "lucide-react";
+import { uploadImage } from "@/lib/cloudinaryImage";
 
 export default function ProfileSetupPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const [formData, setFormData] = useState({
     firstName: "",
     surname: "",
     username: "",
-    bio: "",
-    phoneNumber: "",
-    showPhone: false,
-    whatsappNumber: "",
-    showWhatsapp: false,
-    location: "",
+    university: "",
     studentId: "",
     program: "",
     yearOfStudy: "",
-    photoURL: "",
-    university: "",
+    phone: "",
+    whatsapp: "",
+    location: "",
+    bio: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [progress, setProgress] = useState(0);
 
-  const capitalizeFirstLetter = (str: string) => {
-    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-  };
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  const handleNameChange = (field: 'firstName' | 'surname', value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: capitalizeFirstLetter(value)
-    }));
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Only allow digits and limit to 10 characters
-    const digitsOnly = value.replace(/\D/g, '');
-    if (digitsOnly.length <= 10) {
-      setFormData({ ...formData, phoneNumber: digitsOnly });
-    }
-  };
-
-  const handleWhatsappChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Only allow digits and limit to 10 characters
-    const digitsOnly = value.replace(/\D/g, '');
-    if (digitsOnly.length <= 10) {
-      setFormData({ ...formData, whatsappNumber: digitsOnly });
-    }
-  };
-
-  useEffect(() => {
-    const fetchExistingProfile = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      // Fetch public profile
-      const publicRef = doc(db, "users_public", user.uid);
-      const publicSnap = await getDoc(publicRef);
-      // Fetch private profile
-      const privateRef = doc(db, "users_private", user.uid);
-      const privateSnap = await getDoc(privateRef);
-
-      const publicData = publicSnap.exists() ? publicSnap.data() : {};
-      const privateData = privateSnap.exists() ? privateSnap.data() : {};
-
-      setFormData({
-        firstName: privateData.firstName || "",
-        surname: privateData.surname || "",
-        username: publicData.username || "",
-        bio: publicData.bio || "",
-        phoneNumber: publicData.phone || "",
-        showPhone: publicData.showPhone || false,
-        whatsappNumber: publicData.whatsapp || "",
-        showWhatsapp: publicData.showWhatsapp || false,
-        location: publicData.location || "",
-        studentId: privateData.studentId || "",
-        program: privateData.program || "",
-        yearOfStudy: privateData.yearOfStudy || "",
-        photoURL: publicData.photoURL || "",
-        university: publicData.university || "",
+    setIsUploading(true);
+    try {
+      const { url } = await uploadImage(file, {
+        folder: `users/${user?.uid}/profile`,
+        transformation: {
+          width: 500,
+          height: 500,
+          crop: 'fill',
+          quality: 'auto'
+        }
       });
-      setIsEditing(!!(publicSnap.exists() || privateSnap.exists()));
-    };
-
-    fetchExistingProfile();
-  }, []);
-
-  // Calculate form completion progress
-  useEffect(() => {
-    const requiredFields = ['firstName', 'surname', 'username', 'studentId', 'program', 'yearOfStudy'];
-    const filledFields = requiredFields.filter(field => {
-  const value = formData[field as keyof typeof formData];
-  return typeof value === 'string' && value.trim();
-});
-    setProgress((filledFields.length / requiredFields.length) * 100);
-  }, [formData]);
-
-  const validateForm = () => {
-    if (!formData.firstName.trim()) {
-      setError("First name is required");
-      return false;
+      setPhotoURL(url);
+    } catch (error) {
+      console.error("Upload failed:", error);
+      setError("Failed to upload image. Please try again.");
+    } finally {
+      setIsUploading(false);
     }
-    if (!formData.surname.trim()) {
-      setError("Surname is required");
-      return false;
-    }
-    if (!formData.username.trim()) {
-      setError("Username is required");
-      return false;
-    }
-    // Phone number validation: must be exactly 10 digits
-    if (formData.phoneNumber && formData.phoneNumber.length !== 10) {
-      setError("Phone number must be exactly 10 digits");
-        return false;
-      }
-    // WhatsApp number validation: must be exactly 10 digits
-    if (formData.whatsappNumber && formData.whatsappNumber.length !== 10) {
-      setError("WhatsApp number must be exactly 10 digits");
-      return false;
-    }
-    if (!formData.studentId.trim()) {
-      setError("Student ID is required");
-      return false;
-    }
-    if (!formData.program.trim()) {
-      setError("Program is required");
-      return false;
-    }
-    if (!formData.yearOfStudy) {
-      setError("Year of study is required");
-      return false;
-    }
-    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
-    
     setIsSubmitting(true);
-    setError("");
+    setError(null);
 
     try {
-      // Wait for auth.currentUser to be available if not yet loaded
-      let user = auth.currentUser;
-      let retryCount = 0;
-      while (!user && retryCount < 10) {
-        await new Promise(res => setTimeout(res, 200));
-        user = auth.currentUser;
-        retryCount++;
-      }
-      if (!user) throw new Error("User not authenticated. Please refresh and try again.");
+      if (!user) throw new Error("You must be logged in to set up your profile.");
 
-      const fullName = `${formData.firstName.trim()} ${formData.surname.trim()}`;
+      // Create public profile
+      const publicProfile = {
+        firstName: formData.firstName,
+        surname: formData.surname,
+        username: formData.username,
+        university: formData.university,
+        photoURL: photoURL || user.photoURL,
+        createdAt: new Date(),
+      };
 
-      // Update Firebase Auth display name
-      try {
-        await updateProfile(user, {
-          displayName: fullName
-        });
-      } catch (profileError) {
-        console.error("Error updating profile:", profileError);
-        throw new Error("Failed to update profile name");
-      }
-
-      // Write to users_public
-      const publicRef = doc(db, "users_public", user.uid);
-      await setDoc(publicRef, {
-        displayName: fullName,
-        username: formData.username.trim(),
-        bio: formData.bio,
-        phone: formData.phoneNumber,
-        showPhone: formData.showPhone,
-        whatsapp: formData.whatsappNumber,
-        showWhatsapp: formData.showWhatsapp,
-        location: formData.location,
-        photoURL: formData.photoURL || "",
-        university: formData.university || "",
-        rating: 0,
-        totalListings: 0,
-        updatedAt: new Date(),
-      }, { merge: true });
-
-      // Write to users_private
-      const privateRef = doc(db, "users_private", user.uid);
-      await setDoc(privateRef, {
-        firstName: typeof formData.firstName === "string" ? formData.firstName.trim() : "",
-        surname: typeof formData.surname === "string" ? formData.surname.trim() : "",
+      // Create private profile
+      const privateProfile = {
         studentId: formData.studentId,
         program: formData.program,
         yearOfStudy: formData.yearOfStudy,
-        email: user.email,
-        updatedAt: new Date(),
-      }, { merge: true });
+        phone: formData.phone,
+        whatsapp: formData.whatsapp,
+        location: formData.location,
+        bio: formData.bio,
+      };
+
+      // Save both profiles
+      await Promise.all([
+        setDoc(doc(db, "users_public", user.uid), publicProfile),
+        setDoc(doc(db, "users_private", user.uid), privateProfile),
+      ]);
 
       router.push("/profile");
-    } catch (err) {
-      console.error("Profile setup error:", err);
-      setError(err instanceof Error ? err.message : "Failed to save profile");
+    } catch (error) {
+      console.error("Profile setup failed:", error);
+      setError(error instanceof Error ? error.message : "Failed to set up profile");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    setError('');
-
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error('User not authenticated');
-
-      // Use the helper function to upload the image
-      const downloadURL = await uploadImage(file, `profile_pictures/${user.uid}/${file.name}`);
-      
-      // Update form data with the new photo URL
-      setFormData(prev => ({
-        ...prev,
-        photoURL: downloadURL
-      }));
-
-      // Update Firebase Auth profile
-      await updateProfile(user, {
-        photoURL: downloadURL
-      });
-
-    } catch (err) {
-      console.error('Error uploading image:', err);
-      setError(err instanceof Error ? err.message : 'Failed to upload image. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const removeProfilePicture = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error('User not authenticated');
-
-      // Update form data
-      setFormData(prev => ({
-        ...prev,
-        photoURL: ''
-      }));
-
-      // Update Firebase Auth profile
-      await updateProfile(user, {
-        photoURL: null
-      });
-
-    } catch (err) {
-      console.error('Error removing profile picture:', err);
-      setError('Failed to remove profile picture. Please try again.');
-    }
-  };
-
-  if (isSubmitting) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--primary)]"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center mb-6">
-        <Link href="/profile" className="mr-4">
-          <Button variant="ghost" className="p-2">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-        </Link>
-        <h2 className="text-2xl font-bold text-center text-[var(--foreground)]">
-          {isEditing ? "Edit Profile" : "Complete Your Profile"}
-        </h2>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mb-6">
-        <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-[var(--primary)] transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <p className="text-sm text-[var(--foreground)]/70 mt-2">
-          {Math.round(progress)}% Complete
-        </p>
-      </div>
-
-      <div className="bg-[var(--background)] p-8 rounded-lg shadow border border-[var(--border)]">
-        {error && (
-          <div className="mb-4 p-3 bg-[var(--error)]/10 text-[var(--error)] rounded text-sm">
-            {error}
-          </div>
-        )}
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-lg shadow-lg p-6"
+      >
+        <h1 className="text-2xl font-bold mb-6">Complete Your Profile</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Profile Picture Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center gap-2">
-              <Camera className="w-5 h-5" />
-              Profile Picture
-            </h3>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full overflow-hidden bg-[var(--accent)] flex items-center justify-center">
-                  {formData.photoURL ? (
-                    <img 
-                      src={formData.photoURL} 
-                      alt="Profile" 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-12 h-12 text-[var(--foreground-muted)]" />
-                  )}
+          {/* Profile Image Upload */}
+          <div className="flex flex-col items-center space-y-4">
+            <div className="relative group">
+              {photoURL || user?.photoURL ? (
+                <Avatar
+                  src={photoURL || user?.photoURL || '/default-avatar.png'}
+                  alt="Profile Picture"
+                  size={160}
+                  className="border-4 border-[var(--primary)] transition-transform group-hover:scale-105"
+                />
+              ) : (
+                <div className="w-40 h-40 rounded-full bg-[var(--accent)] flex items-center justify-center border-4 border-[var(--primary)]">
+                  <User className="w-20 h-20 text-[var(--foreground-muted)]" />
                 </div>
-                {formData.photoURL && (
-                  <button
-                    type="button"
-                    onClick={removeProfilePicture}
-                    className="absolute -top-2 -right-2 p-1 rounded-full bg-[var(--error)] text-white hover:bg-[var(--error)]/90 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <div className="flex-1">
+              )}
+              <label
+                htmlFor="photo-upload"
+                className="absolute bottom-0 right-0 bg-[var(--primary)] text-white p-2 rounded-full hover:bg-[var(--primary-hover)] transition-colors cursor-pointer"
+              >
                 <input
+                  id="photo-upload"
                   type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
                   accept="image/*"
+                  onChange={handleImageChange}
                   className="hidden"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="w-full"
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  {uploading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
-                      <span>Uploading...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Camera className="w-4 h-4" />
-                      <span>{formData.photoURL ? 'Change Picture' : 'Upload Picture'}</span>
-                    </div>
-                  )}
-                </Button>
-                <p className="text-xs text-[var(--foreground-muted)] mt-1">
-                  Recommended: Square image, max 5MB
-                </p>
-              </div>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+              </label>
             </div>
+            {isUploading && <p className="text-sm text-[var(--foreground)]/60">Uploading...</p>}
           </div>
 
-          {/* Personal Information Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Personal Information
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <input
-                  type="text"
-                  placeholder="First Name"
-                  value={formData.firstName}
-                  onChange={(e) => handleNameChange('firstName', e.target.value)}
-                  required
-                  className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
-                />
-              </div>
-              <div>
-                <input
-                  type="text"
-                  placeholder="Surname"
-                  value={formData.surname}
-                  onChange={(e) => handleNameChange('surname', e.target.value)}
-                  required
-                  className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
-                />
-              </div>
-            </div>
-
+          {/* Personal Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <input
-                type="text"
-                placeholder="Username"
+              <Label htmlFor="firstName">First Name</Label>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="surname">Surname</Label>
+              <Input
+                id="surname"
+                value={formData.surname}
+                onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 required
-                className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
               />
             </div>
-
             <div>
-              <textarea
-                placeholder="Short Bio"
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
-                rows={3}
-              />
-            </div>
-          </div>
-
-          {/* Contact Information Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center gap-2">
-              <Mail className="w-5 h-5" />
-              Contact Information
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Phone className="w-4 h-4 text-[var(--primary)]" />
-                  <label className="text-sm text-[var(--foreground)]/70">Call Number</label>
-                </div>
-                <input
-                  type="tel"
-                  placeholder="Phone Number for Calls"
-                  value={formData.phoneNumber}
-                  onChange={handlePhoneChange}
-                  maxLength={10}
-                  className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
-                />
-                <div className="flex items-center mt-1">
-                  <input
-                    type="checkbox"
-                    id="showPhone"
-                    checked={formData.showPhone}
-                    onChange={e => setFormData({ ...formData, showPhone: e.target.checked })}
-                    className="mr-2"
-                  />
-                  <label htmlFor="showPhone" className="text-xs text-[var(--foreground)]/60">
-                    Show my phone publicly
-                  </label>
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <MessageCircle className="w-4 h-4 text-[var(--primary)]" />
-                  <label className="text-sm text-[var(--foreground)]/70">WhatsApp Number</label>
-                </div>
-                <input
-                  type="tel"
-                  placeholder="WhatsApp Number"
-                  value={formData.whatsappNumber}
-                  onChange={handleWhatsappChange}
-                  maxLength={10}
-                  className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
-                />
-                <div className="flex items-center mt-1">
-                  <input
-                    type="checkbox"
-                    id="showWhatsapp"
-                    checked={formData.showWhatsapp}
-                    onChange={e => setFormData({ ...formData, showWhatsapp: e.target.checked })}
-                    className="mr-2"
-                  />
-                  <label htmlFor="showWhatsapp" className="text-xs text-[var(--foreground)]/60">
-                    Show my WhatsApp publicly
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <MapPin className="w-4 h-4 text-[var(--primary)]" />
-                <label className="text-sm text-[var(--foreground)]/70">Location</label>
-              </div>
-              <input
-                type="text"
-                placeholder="Location (e.g. Campus, Town)"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
+              <Label htmlFor="university">University</Label>
+              <Input
+                id="university"
+                value={formData.university}
+                onChange={(e) => setFormData({ ...formData, university: e.target.value })}
+                required
               />
             </div>
           </div>
 
-          {/* Academic Information Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center gap-2">
-              <GraduationCap className="w-5 h-5" />
-              Academic Information
-            </h3>
+          {/* Academic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <BookOpen className="w-4 h-4 text-[var(--primary)]" />
-                <label className="text-sm text-[var(--foreground)]/70">Student ID</label>
-              </div>
-              <input
-                type="text"
-                placeholder="Student ID"
+              <Label htmlFor="studentId">Student ID</Label>
+              <Input
+                id="studentId"
                 value={formData.studentId}
                 onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
                 required
-                className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
               />
             </div>
-
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <GraduationCap className="w-4 h-4 text-[var(--primary)]" />
-                <label className="text-sm text-[var(--foreground)]/70">Program</label>
-              </div>
-              <input
-                type="text"
-                placeholder="Program (e.g. BSc ICT)"
+              <Label htmlFor="program">Program</Label>
+              <Input
+                id="program"
                 value={formData.program}
                 onChange={(e) => setFormData({ ...formData, program: e.target.value })}
                 required
-                className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
               />
             </div>
-
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Calendar className="w-4 h-4 text-[var(--primary)]" />
-                <label className="text-sm text-[var(--foreground)]/70">Year of Study</label>
-              </div>
-              <select
+              <Label htmlFor="yearOfStudy">Year of Study</Label>
+              <Select
+                id="yearOfStudy"
                 value={formData.yearOfStudy}
-                onChange={(e) => setFormData({ ...formData, yearOfStudy: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, yearOfStudy: e.target.value })}
                 required
-                className="w-full border border-[var(--border)] px-4 py-2 rounded focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--background)] text-[var(--foreground)]"
               >
-                <option value="">Select Year of Study</option>
-                <option value="1">1st Year</option>
-                <option value="2">2nd Year</option>
-                <option value="3">3rd Year</option>
-                <option value="4">4th Year</option>
-              </select>
+                <option value="">Select Year</option>
+                <option value="1">First Year</option>
+                <option value="2">Second Year</option>
+                <option value="3">Third Year</option>
+                <option value="4">Fourth Year</option>
+                <option value="5">Fifth Year</option>
+              </Select>
             </div>
           </div>
 
-          <Button 
-            type="submit" 
+          {/* Contact Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="whatsapp">WhatsApp Number</Label>
+              <Input
+                id="whatsapp"
+                type="tel"
+                value={formData.whatsapp}
+                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Bio */}
+          <div>
+            <Label htmlFor="bio">Bio</Label>
+            <Textarea
+              id="bio"
+              value={formData.bio}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, bio: e.target.value })}
+              rows={4}
+            />
+          </div>
+
+          {error && (
+            <div className="text-[var(--error)] text-sm">{error}</div>
+          )}
+
+          <Button
+            type="submit"
             disabled={isSubmitting}
-            className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white py-2 px-4 rounded"
+            className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white"
           >
-            {isSubmitting ? "Saving..." : isEditing ? "Update Profile" : "Save Profile"}
+            {isSubmitting ? "Setting up profile..." : "Complete Profile"}
           </Button>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }
